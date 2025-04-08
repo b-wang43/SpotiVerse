@@ -1,38 +1,197 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, Helvetica, Helvetica;
+  background-color: #121212; 
+  color: #1DB954;
+  margin: 0;
+  padding: 20px;
+}
+
 .App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+  max-width: 1100px;
+  margin: 20px auto;
+  padding: 30px;
+  background-color: #181818;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
 }
 
 .App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+}
+
+.App-header h1 {
+    margin: 0;
+    color: #FFFFFF;
+    font-size: 1.8em;
+    font-weight: bold;
+}
+
+.App-header img {
+  height: 10%;
+  width: 10%;
+}
+
+button {
+  background-color: #1DB954;
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 500px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+button:hover {
+  background-color: #1ed760;
+  transform: scale(1.03);
+}
+
+button:active {
+    transform: scale(1);
+}
+
+main {
+  padding-top: 10px;
+}
+
+main p:first-child {
+  color: #B3B3B3;
+  font-style: italic;
+}
+
+.error {
+  color: #ff6a6a;
+  background-color: rgba(255, 106, 106, 0.1);
+  border: 1px solid rgba(255, 106, 106, 0.3);
+  padding: 15px;
+  border-radius: 4px;
+  margin: 20px 0;
+}
+
+.fade-in-section {
+  opacity: 0;
+  transform: translateY(15px);
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.user-profile {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.user-profile h2 {
+    margin-bottom: 15px;
+    font-size: 1.5em;
+    color: 1DB954;
+}
+
+.user-profile img {
+    margin-bottom: 15px;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.user-profile p {
+    color: #B3B3B3;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+.user-profile a {
+    color: #1DB954;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+.user-profile a:hover {
+    color: #22f183;
+}
+
+.stats-section {
+  margin-bottom: 40px;
+}
+
+.stats-section h2 {
+  color: #1DB954;
+  border-bottom: 1px solid #282828;
+  padding-bottom: 8px;
+  margin-bottom: 20px;
+  font-size: 1.3em;
+  font-weight: 600;
+}
+
+.stats-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.stats-section li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 10px;
+  background-color: #282828;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.stats-section li div {
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  flex-grow: 1;
+  text-align: right;
+  margin-left: 15px;
+  width: 100%;
 }
 
-.App-link {
-  color: #61dafb;
+.stats-section li:hover {
+    background-color: #535353;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.stats-section li img {
+  margin-right: 15px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.stats-section li a {
+  width: 800px;
+  text-decoration: none;
+  color: #FFFFFF;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.stats-section li a:hover {
+  color: #1DB954;
+}
+
+.stats-section li span {
+  color: #B3B3B3;
+  font-size: 0.85em;
+  margin-top: 4px;
 }
