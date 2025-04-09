@@ -16,7 +16,6 @@ function TopTracksPage({ tracks, features, formatDuration }) {
 
     return (
         <div className="page-container">
-            <h2>Your Top Tracks</h2>
             <ul className="track-list">
                 {tracks.map((track, index) => (
                     <motion.li

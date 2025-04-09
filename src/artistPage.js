@@ -16,7 +16,6 @@ function TopArtistsPage({ artists }) {
 
     return (
         <div className="page-container">
-            <h2>Your Top Artists</h2>
             <ul className="artist-list">
                 {artists.map((artist, index) => (
                     <motion.li

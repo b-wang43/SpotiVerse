@@ -12,6 +12,7 @@ import TopArtistsPage from './artistPage';
 import TopTracksPage from './trackPage';
 import RecommendationsPage from './recommendations';
 import LoginPage from './LoginPage';
+import TimeRangeSelector from './components/TimeRangeSelector';
 
 // --- Constants ---
 const CLIENT_ID = 'bbc74db9fb9243f595ad6eb98f082b79';
@@ -30,238 +31,77 @@ const SCOPES = [
 ];
 const SCOPES_URL_PARAM = SCOPES.join('%20');
 
-// --- API Helper ---
-async function fetchWebApi(endpoint, method, token, body = null) {
-    const BASE_URL = 'https://api.spotify.com/v1';
-    const apiUrl = `${BASE_URL}${endpoint}`;
-    
-    console.log("API Request URL:", apiUrl);
-    console.log("Token being sent:", token);
-
-    try {
-        const res = await fetch(apiUrl, {
-            method: method,
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: body ? JSON.stringify(body) : undefined,
-        });
-
-        if (!res.ok) {
-            const errorData = await res.json();
-            const errorMsg = errorData?.error?.message || res.statusText;
-            console.error(`API Error (${res.status}): ${errorMsg}`);
-            throw new Error(`Spotify API request failed: ${errorMsg}`);
-        }
-
-        return await res.json();
-    } catch (error) {
-        console.error('API Request Error:', error);
-        throw error;
-    }
-}
-// --- Duration Formatter ---
-function formatDuration(ms) {
-    if (typeof ms !== 'number' || ms < 0) return 'N/A';
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-}
-
 // --- Main App Component ---
 function App() {
     // --- State ---
     const [token, setToken] = useState(window.localStorage.getItem('spotify_token')); // Initialize from localStorage
     const [profile, setProfile] = useState(null);
-    const [topArtists, setTopArtists] = useState(null);
-    const [topTracks, setTopTracks] = useState(null);
-    const [recommendations, setRecommendations] = useState(null);
+    const [topArtists, setTopArtists] = useState([]);
+    const [topTracks, setTopTracks] = useState([]);
+    const [recommendations, setRecommendations] = useState([]);
     const [topTracksAudioFeatures, setTopTracksAudioFeatures] = useState({});
     const [recommendationsAudioFeatures, setRecommendationsAudioFeatures] = useState({});
     const [loading, setLoading] = useState(false); // Tracks if *any* loading is happening
     const [initialLoadComplete, setInitialLoadComplete] = useState(false); // Tracks if initial data load succeeded
     const [error, setError] = useState(null);
+    const [timeRange, setTimeRange] = useState('short_term');
+    const [isLoading, setIsLoading] = useState(false);
 
     // --- React Router Hooks ---
     const navigate = useNavigate();
     const location = useLocation();
 
-    // --- Authentication Handling (Check on load, handle hash) ---
+    // --- Authentication Handling ---
     useEffect(() => {
-        console.log("App mount: Checking token status...");
         const hash = window.location.hash;
-        const localToken = window.localStorage.getItem('spotify_token');
-        const tokenExpiry = window.localStorage.getItem('spotify_token_expiry');
-        let validTokenFound = false;
-        // 1. Check hash for new token
         if (hash) {
-            console.log("URL hash detected.");
-            //window.history.pushState("", document.title, window.location.pathname + window.location.search); // Use pushState
-        }
-        // Check URL Hash for new token (after redirect)
-        if (!localToken && hash) { // Add !localToken check
             const params = new URLSearchParams(hash.substring(1));
             const accessToken = params.get('access_token');
-            const expiresIn = params.get('expires_in');
-            if (accessToken && expiresIn) {
-                const expiryTime = new Date().getTime() + parseInt(expiresIn) * 1000;
-                // Quick check if expiry is valid
-                if (expiryTime > new Date().getTime()) {
-                    console.log("New token parsed from hash.");
-                    window.localStorage.setItem('spotify_token', accessToken);
-                    window.localStorage.setItem('spotify_token_expiry', expiryTime.toString());
-                    setToken(accessToken); // Set token state
-                    validTokenFound = true;
-                    //navigate('/'); // <--- ADD THIS LINE: Navigate to home page
-                } else {
-                    console.log("Token from hash is already expired.");
-                    window.localStorage.removeItem('spotify_token');
-                    window.localStorage.removeItem('spotify_token_expiry');
-                }
-            } else {
-                console.log("Hash did not contain valid token parameters.");
+            if (accessToken) {
+                window.localStorage.setItem('spotify_token', accessToken);
+                setToken(accessToken);
+                window.location.hash = '';
             }
-        }
-        // 2. Check localStorage if no valid token from hash
-        if (!validTokenFound && localToken && tokenExpiry) {
-            if (new Date().getTime() < parseInt(tokenExpiry)) {
-                console.log("Valid token found in localStorage.");
-                setToken(localToken); // Set token state
-                validTokenFound = true;
-            } else {
-                console.log("Token in localStorage has expired.");
-                window.localStorage.removeItem('spotify_token');
-                window.localStorage.removeItem('spotify_token_expiry');
-                setToken(null); // Ensure token state is null if expired
-            }
-        }
-        if (!validTokenFound && token) {
-            // If component had a token state but validation failed, clear it
-            console.log("Clearing invalid token state.");
-            setToken(null);
         }
     }, []);
+
     // --- Data Fetching ---
     useEffect(() => {
-        // Only fetch if token exists AND initial load hasn't completed
         if (token && !initialLoadComplete) {
-            console.log("Starting initial data fetch...");
-            setLoading(true);
-            setError(null);
-            // Clear previous data to avoid showing stale data briefly
-            setProfile(null); setTopArtists(null); setTopTracks(null); setRecommendations(null);
-            setTopTracksAudioFeatures({}); setRecommendationsAudioFeatures({});
-
-            const fetchAllData = async () => {
-                try {
-                    // Define chunk size for audio features requests
-                    const chunkSize = 50;
-
-                    // Fetch profile, artists, tracks in parallel
-                    const [profile, topArtists, topTracks] = await Promise.all([
-                        fetchWebApi('/me', 'GET', token),
-                        fetchWebApi('/me/top/artists?time_range=medium_term&limit=50', 'GET', token),
-                        fetchWebApi('/me/top/tracks?time_range=medium_term&limit=50', 'GET', token)
-                    ]);
-
-                    console.log('Profile data:', profile);
-                    console.log('Artists data:', topArtists);
-                    console.log('Tracks data:', topTracks);
-
-                    setProfile(profile);
-                    console.log("Profile fetched:", profile);
-
-                    const topArtistItems = topArtists?.items || [];
-                    setTopArtists(topArtistItems);
-                    console.log("Top artists fetched:", topArtistItems.length, "artists");
-
-                    const topTrackItems = topTracks?.items || [];
-                    setTopTracks(topTrackItems);
-                    console.log("Top tracks fetched:", topTrackItems.length, "tracks");
-
-                    // Commenting out audio features fetching for now
-                    /*
-                    // Fetch audio features sequentially after getting IDs
-                    let topTrackFeaturesMap = {};
-                    if (topTrackItems.length > 0) {
-                        // Split track IDs into chunks of 50 (Spotify's limit)
-                        const trackIds = topTrackItems.map(t => t.id);
-                        for (let i = 0; i < trackIds.length; i += chunkSize) {
-                            const chunk = trackIds.slice(i, i + chunkSize);
-                            const featuresData = await fetchWebApi(`/audio-features?ids=${chunk.join(',')}`, 'GET', token);
-                            if (featuresData?.audio_features) {
-                                featuresData.audio_features.forEach(f => { 
-                                    if (f) topTrackFeaturesMap[f.id] = f;
-                                });
-                            }
-                            // Add a small delay between requests to avoid rate limiting
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                        }
-                        setTopTracksAudioFeatures(topTrackFeaturesMap);
-                        console.log("Top tracks features fetched.");
-                    }
-                    */
-
-                    // Fetch recommendations
-                    const seed_artists = topArtistItems.slice(0, 2).map(a => a.id).join(',');
-                    const trackSeedCount = Math.min(topTrackItems.length, 5 - (seed_artists ? seed_artists.split(',').length : 0));
-                    const seed_tracks = trackSeedCount > 0 ? topTrackItems.slice(0, trackSeedCount).map(t => t.id).join(',') : '';
-
-                    let recommendationItems = [];
-                    if (seed_artists || seed_tracks) {
-                        try {
-                            const recParams = new URLSearchParams();
-                            recParams.append('limit', '20');
-                            
-                            // Only add seed parameters if they exist
-                            if (seed_artists) {
-                                recParams.append('seed_artists', seed_artists);
-                            }
-                            if (seed_tracks) {
-                                recParams.append('seed_tracks', seed_tracks);
-                            }
-
-                            console.log("Fetching recommendations with params:", recParams.toString());
-                            const recsData = await fetchWebApi(`/recommendations?${recParams.toString()}`, 'GET', token);
-                            
-                            if (recsData?.tracks) {
-                                recommendationItems = recsData.tracks;
-                                setRecommendations(recommendationItems);
-                                console.log("Recommendations fetched successfully:", recommendationItems.length, "tracks");
-                            } else {
-                                console.log("No recommendations data received");
-                                setRecommendations([]);
-                            }
-                        } catch (error) {
-                            console.error("Error fetching recommendations:", error);
-                            setRecommendations([]);
-                        }
-                    } else {
-                        console.log("Not enough seed data for recommendations.");
-                        setRecommendations([]);
-                    }
-
-                    console.log("Initial data fetch successful.");
-                    setInitialLoadComplete(true); // Mark initial load as done
-
-                } catch (err) {
-                     console.error("Error during initial data fetch:", err);
-                     if (err.message.includes('401') || err.message.includes('403') || err.message.includes('token')) {
-                          console.log("Authentication error detected, logging out.");
-                          logout();
-                     } else {
-                          setError(err.message || 'An error occurred while fetching data.');
-                     }
-                } finally {
-                    setLoading(false); // Stop loading indicator regardless of success/failure
-                }
-            };
-
             fetchAllData();
         }
-    }, [token, initialLoadComplete]); // Effect dependencies
+    }, [token, initialLoadComplete, timeRange]);
+
+    const fetchAllData = async () => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const [profileData, artists, tracks] = await Promise.all([
+                fetchWebApi('me', 'GET'),
+                fetchWebApi(`me/top/artists?time_range=${timeRange}&limit=50`, 'GET'),
+                fetchWebApi(`me/top/tracks?time_range=${timeRange}&limit=50`, 'GET')
+            ]);
+
+            setProfile(profileData);
+            setTopArtists(artists.items);
+            setTopTracks(tracks.items);
+
+            if (tracks.items.length > 0) {
+                const recs = await getRecommendations(tracks.items);
+                setRecommendations(recs.tracks);
+            }
+            setInitialLoadComplete(true);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            setError('Failed to fetch data. Please try again.');
+            if (error.message.includes('Invalid access token')) {
+                logout();
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
         const observer = initScrollObserver();
@@ -289,12 +129,13 @@ function App() {
 
     const logout = () => {
         console.log("Logging out...");
-        setToken(null);
-        setProfile(null); setTopArtists(null); setTopTracks(null); setRecommendations(null);
-        setTopTracksAudioFeatures({}); setRecommendationsAudioFeatures({});
-        setError(null); setLoading(false); setInitialLoadComplete(false); // Reset state fully
+        setToken('');
+        setProfile(null);
+        setTopArtists([]);
+        setTopTracks([]);
+        setRecommendations([]);
+        setInitialLoadComplete(false);
         window.localStorage.removeItem('spotify_token');
-        window.localStorage.removeItem('spotify_token_expiry');
         navigate('/');
     };
 
@@ -305,6 +146,79 @@ function App() {
         exit: { opacity: 0, transition: { duration: 0.2, ease: "easeInOut" } }
     };
 
+    const handleTimeRangeChange = async (newTimeRange) => {
+        setTimeRange(newTimeRange);
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const [artists, tracks] = await Promise.all([
+                fetchWebApi(`me/top/artists?time_range=${newTimeRange}&limit=20`, 'GET'),
+                fetchWebApi(`me/top/tracks?time_range=${newTimeRange}&limit=20`, 'GET')
+            ]);
+
+            setTopArtists(artists.items);
+            setTopTracks(tracks.items);
+
+            if (tracks.items.length > 0) {
+                const recs = await getRecommendations(tracks.items);
+                setRecommendations(recs.tracks);
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            setError('Failed to fetch data. Please try again.');
+            if (error.message.includes('Invalid access token')) {
+                logout();
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- Helper Functions ---
+    const formatDuration = (ms) => {
+        if (typeof ms !== 'number' || ms < 0) return 'N/A';
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    };
+
+    // --- API Helper ---
+    const fetchWebApi = async (endpoint, method, body = null) => {
+        if (!token) {
+            throw new Error('No access token available');
+        }
+
+        const res = await fetch(`https://api.spotify.com/v1/${endpoint}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            method,
+            body: body ? JSON.stringify(body) : undefined,
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            const errorMsg = errorData?.error?.message || res.statusText;
+            console.error(`API Error (${res.status}): ${errorMsg}`);
+            throw new Error(`Spotify API request failed: ${errorMsg}`);
+        }
+
+        return await res.json();
+    };
+
+    const getRecommendations = async (tracks) => {
+        const seed_artists = tracks.slice(0, 2).map(track => track.artists[0].id).join(',');
+        const seed_tracks = tracks.slice(0, 3).map(track => track.id).join(',');
+        
+        return await fetchWebApi(
+            `recommendations?limit=20&seed_tracks=${seed_tracks}&seed_artists=${seed_artists}`,
+            'GET'
+        );
+    };
+
     // --- Render Logic ---
     return (
         <div className="App">
@@ -312,22 +226,22 @@ function App() {
                 <img src="/spotiverse.png" alt="Spotiverse Logo" className="app-logo" />
             </div>
             
-            {token ? (
+            {token && (
                 <>
-                    <div className="logout-container">
-                        <button className="logout-button" onClick={logout}>
-                            Logout
-                        </button>
-                    </div>
+                    <TimeRangeSelector onTimeRangeChange={handleTimeRangeChange} />
+                    <button className="logout-button" onClick={logout}>
+                        Logout
+                    </button>
                     <Navbar />
                 </>
-            ) : null}
+            )}
 
             <AnimatePresence mode="wait">
                 <Routes location={location} key={location.pathname}>
                     <Route path="/" element={
                         token ? (
                             <motion.div
+                                key={timeRange}
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
@@ -368,6 +282,7 @@ function App() {
                     <Route path="/top-artists" element={
                         <motion.div key="top-artists" variants={pageVariants} initial="initial" animate="animate" exit="exit">
                             <div className="content-area">
+                                <h1 className='page-header'>Your Top Artists</h1>
                                 <TopArtistsPage artists={topArtists} />
                             </div>
                         </motion.div>
@@ -375,6 +290,7 @@ function App() {
                     <Route path="/top-tracks" element={
                         <motion.div key="top-tracks" variants={pageVariants} initial="initial" animate="animate" exit="exit">
                             <div className="content-area">
+                                <h1 className='page-header'>Your Top Tracks</h1>
                                 <TopTracksPage 
                                     tracks={topTracks} 
                                     features={topTracksAudioFeatures} 

@@ -271,15 +271,18 @@ button:active {
 }
 
 .logout-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
     background-color: #1DB954;
     color: white;
     border: none;
     padding: 10px 20px;
     border-radius: 20px;
-    font-size: 1em;
-    font-weight: bold;
+    font-size: 0.9em;
     cursor: pointer;
     transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .logout-button:hover {

@@ -1,0 +1,60 @@
+.time-range-container {
+    position: absolute;
+    top: 47px;
+    right: 400px;
+    z-index: 1000;
+}
+
+.time-range-button {
+    background-color: black;
+    color: white;
+    border: none;
+    padding: 10px 10px;
+    border-radius: 20px;
+    font-size: 0.9em;
+    font-weight: normal;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.time-range-button:hover {
+    background-color: #1ed760;
+    transform: scale(1.05);
+}
+
+.time-range-dropdown {
+    position: absolute;
+    font-weight: normal;
+    top: 100%;
+    right: 0;
+    background-color: #282828;
+    border-radius: 8px;
+    padding: 8px;
+    margin-top: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    min-width: 180px;
+}
+
+.time-range-option {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: none;
+    border: none;
+    color: white;
+    text-align: left;
+    font-size: 0.9em;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.time-range-option:hover {
+    background-color: #404040;
+}
+
+.time-range-option.selected {
+    background-color: #404040;
+    color: #1DB954;
+} 

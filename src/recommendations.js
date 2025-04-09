@@ -12,7 +12,6 @@ function RecommendationsPage({ recommendations, features, formatDuration }) {
     return (
         <div className="page-container">
             <section className="stats-section">
-                <h2>Recommended For You</h2>
                 {recommendations.length > 0 ? (
                     <ul>
                         {recommendations.map((track) => {
