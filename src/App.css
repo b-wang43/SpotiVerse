@@ -1,3 +1,6 @@
+/* src/App.css */
+
+/* --- Base and Layout --- */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -5,124 +8,91 @@
 }
 
 body {
-  font-family: 'Helvetica Neue', Helvetica, Helvetica, Helvetica;
-  background-color: #121212; 
-  color: #1DB954;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background-color: #121212; /* Spotify dark background */
+  color: #FFFFFF;
   margin: 0;
-  padding: 20px;
+  overscroll-behavior-y: contain; /* Prevent pull-to-refresh issues */
 }
 
 .App {
-  max-width: 1100px;
-  margin: 20px auto;
-  padding: 30px;
-  background-color: #181818;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  border-radius: 8px;
-}
-
-.App-header {
+  max-width: 1200px; /* Wider max width */
+  margin: 0 auto; /* Center horizontally */
+  background-color: #181818; /* Main app background */
+  min-height: 100vh;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 20px;
+  flex-direction: column;
 }
 
-.App-header h1 {
-    margin: 0;
-    color: #FFFFFF;
-    font-size: 1.8em;
-    font-weight: bold;
+.content-area {
+  padding: 30px;
+  /* Increased padding to ensure content is well above the floating navbar */
+  padding-bottom: 120px; /* Adjust as needed */
+  flex-grow: 1;
 }
 
-.App-header img {
-  height: 10%;
-  width: 10%;
+/* --- Login View --- */
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    text-align: center;
+    padding: 20px;
+}
+.login-container h1 {
+    color: #1DB954;
+    margin-bottom: 15px;
+    font-size: 2.5em;
+}
+.login-container p {
+    color: #B3B3B3;
+    margin-bottom: 30px;
+    font-size: 1.1em;
 }
 
-button {
+/* --- General Elements --- */
+button { /* Base button style */
   background-color: #1DB954;
   color: white;
   border: none;
   padding: 12px 25px;
   border-radius: 500px;
   cursor: pointer;
-  font-size: 0.9em;
+  font-size: 1em;
   font-weight: bold;
   letter-spacing: 0.5px;
   transition: background-color 0.2s ease, transform 0.1s ease;
 }
-
 button:hover {
   background-color: #1ed760;
   transform: scale(1.03);
 }
-
 button:active {
     transform: scale(1);
 }
 
-main {
-  padding-top: 10px;
-}
-
-main p:first-child {
-  color: #B3B3B3;
-  font-style: italic;
-}
-
-.error {
-  color: #ff6a6a;
-  background-color: rgba(255, 106, 106, 0.1);
-  border: 1px solid rgba(255, 106, 106, 0.3);
-  padding: 15px;
-  border-radius: 4px;
-  margin: 20px 0;
-}
-
-.fade-in-section {
-  opacity: 0;
-  transform: translateY(15px);
-  animation: fadeIn 0.6s ease-out forwards;
-}
-
-@keyframes fadeIn {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.user-profile {
+.loading-text, .error-text {
     text-align: center;
-    margin-bottom: 40px;
-}
-
-.user-profile h2 {
-    margin-bottom: 15px;
-    font-size: 1.5em;
-    color: 1DB954;
-}
-
-.user-profile img {
-    margin-bottom: 15px;
-    border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.user-profile p {
+    padding: 40px;
+    font-size: 1.1em;
     color: #B3B3B3;
-    margin-bottom: 5px;
-    font-size: 0.9em;
+}
+.error {
+  color: #ff8a8a;
+  background-color: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+  padding: 15px;
+  border-radius: 6px;
+  margin: 20px 0;
+  text-align: center;
 }
 
-.user-profile a {
-    color: #1DB954;
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-.user-profile a:hover {
-    color: #22f183;
+/* --- Page & Section Styles --- */
+.page-container {
+    /* Add specific page container styles if needed */
+    width: 100%;
 }
 
 .stats-section {
@@ -130,68 +100,155 @@ main p:first-child {
 }
 
 .stats-section h2 {
-  color: #1DB954;
+  color: #FFFFFF;
   border-bottom: 1px solid #282828;
-  padding-bottom: 8px;
-  margin-bottom: 20px;
-  font-size: 1.3em;
-  font-weight: 600;
+  padding-bottom: 10px;
+  margin-bottom: 25px;
+  font-size: 1.8em; /* Slightly larger section titles */
+  font-weight: 700; /* Bolder */
 }
 
+/* Grid layout for lists */
 .stats-section ul {
   list-style: none;
   padding: 0;
+  display: grid;
+  /* Adjust minmax for desired item width, allow filling */
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 25px; /* Gap between items */
 }
 
+/* List Item Styles */
 .stats-section li {
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
-  padding: 10px;
-  background-color: #282828;
-  border-radius: 4px;
+  padding: 15px;
+  background-color: #282828; /* Card background */
+  border-radius: 6px;
   transition: background-color 0.2s ease;
+  overflow: hidden;
+}
+.stats-section li:hover {
+    background-color: #3a3a3a; /* Hover background */
 }
 
-.stats-section li div {
+/* Image Styles */
+.stats-section li img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px; /* Square for tracks */
+  flex-shrink: 0;
+  background-color: #535353; /* BG for transparent images */
+}
+/* Placeholder for missing images */
+.placeholder-image {
+    width: 60px;
+    height: 60px;
+    background-color: #535353;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Optional: Add an icon */
+    /* color: #888; font-size: 24px; content: '?'; */
+}
+.artist-placeholder {
+    border-radius: 50%; /* Circular placeholder for artists */
+}
+
+/* Item Details Container (Text) */
+.stats-section li .item-details {
   display: flex;
   flex-direction: column;
   justify-content: center;
   flex-grow: 1;
-  text-align: right;
+  text-align: left; /* Keep text left-aligned */
   margin-left: 15px;
-  width: 100%;
+  overflow: hidden; /* Important for text overflow */
+  min-width: 0; /* Crucial for flex item text overflow */
 }
 
-.stats-section li:hover {
-    background-color: #535353;
+/* Primary Link (Track Title / Artist Name) */
+.stats-section li .item-details a {
+    color: #FFFFFF;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.2s ease;
+    font-size: 1em;
+    line-height: 1.3;
+    /* Allow wrapping */
+    white-space: normal;
+    overflow-wrap: break-word;
+    /* Prevent link text itself from overflowing if absolutely needed */
+    /* overflow: hidden; */
+    /* text-overflow: ellipsis; */
+}
+.stats-section li .item-details a:hover {
+    text-decoration: underline;
 }
 
-.stats-section li img {
-  margin-right: 15px;
-  border-radius: 4px;
-  object-fit: cover;
-  flex-shrink: 0;
+/* Secondary Text (Artist names / Genres) */
+.stats-section li .item-details .artist-names,
+.stats-section li .item-details .genres {
+    color: #B3B3B3;
+    font-size: 0.85em;
+    margin-top: 4px;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 1.3;
 }
 
-.stats-section li a {
-  width: 800px;
-  text-decoration: none;
-  color: #FFFFFF;
-  font-weight: 500;
-  transition: color 0.2s ease;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-}
-.stats-section li a:hover {
-  color: #1DB954;
+/* Metrics Container */
+.stats-section li .item-details .metrics {
+    margin-top: 8px;
+    font-size: 0.8em;
+    color: #B3B3B3;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start; /* Align metrics left */
+    gap: 4px 12px; /* Row gap, Column gap */
 }
 
-.stats-section li span {
-  color: #B3B3B3;
-  font-size: 0.85em;
-  margin-top: 4px;
+/* Individual Metric */
+.stats-section li .item-details .metrics span {
+    white-space: nowrap;
+    background-color: #3a3a3a; /* Slightly darker than card hover */
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+/* --- User Profile Specific Styles (if needed in HomePage.js) --- */
+.user-profile {
+    text-align: center;
+    padding: 20px;
+}
+.user-profile h2 {
+    margin-bottom: 15px;
+    font-size: 1.8em;
+}
+.user-profile img {
+    margin-bottom: 15px;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    max-width: 150px; /* Limit profile pic size */
+}
+.user-profile p {
+    color: #B3B3B3;
+    margin-bottom: 8px;
+    font-size: 1em;
+}
+.user-profile a {
+    color: #1DB954;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+.user-profile a:hover {
+    color: #1ed760;
+    text-decoration: underline;
+}
+/* Style logout button specifically if needed */
+.user-profile button {
+    margin-top: 30px;
 }

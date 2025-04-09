@@ -9,18 +9,16 @@ from sklearn.cluster import KMeans
 from flask_cors import CORS
 
 # --- Configuration ---
-# You'll likely need more sophisticated configuration for production
 CSV_FILE_PATH = 'C:\Users\hocke\OneDrive\Documents\SpotiVerse\spotiverse\src\backend\dataset.csv'
 FEATURES_TO_CLUSTER = [
     'danceability', 'energy', 'loudness', 'speechiness',
     'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'
 ]
-# Information columns to return with the clustered songs
 INFO_COLUMNS = ['track_id', 'artists', 'album_name', 'track_name']
 
 # --- Flask App Setup ---
 app = Flask(__name__)
-CORS(app)
+#CORS(app)
 
 # --- Data Loading and Preprocessing ---
 try:
@@ -32,14 +30,12 @@ try:
     # Drop rows with missing values in features used for clustering
     song_data = song_data.dropna(subset=FEATURES_TO_CLUSTER)
     print(f"Dataset loaded successfully. Shape: {song_data.shape}")
-    # Prepare data for clustering
     print("Scaling features...")
     scaler = StandardScaler()
     scaled_features = scaler.fit_transform(song_data[FEATURES_TO_CLUSTER])
     print("Features scaled.")
 except FileNotFoundError:
-    print(f"ERROR: CSV file not found at {CSV_FILE_PATH}")
-    # Exit or handle gracefully if the file is critical
+    print(f"ERROR: CSV file not found at {CSV_FILE_PATH}")\
     exit()
 except Exception as e:
     print(f"Error loading or processing data: {e}")
@@ -56,7 +52,7 @@ def run_kmedians(data, k, max_iterations=100):
 
     for i in range(max_iterations):
         print(f"K-Medians Iteration {i+1}/{max_iterations}")
-        # 2. Assign points to the nearest median (using Manhattan distance)
+        # Assign points to the nearest median (using Manhattan distance)
         distances = manhattan_distances(data, medians)
         labels = np.argmin(distances, axis=1)
 
@@ -80,17 +76,9 @@ def run_kmedians(data, k, max_iterations=100):
     print("K-Medians finished.")
     return labels, medians
 
-# --- Suggestion for K ---
-# Choosing K requires experimentation. Start with a value, then evaluate.
-# Common methods:
-# 1. Elbow Method: Plot variance explained (or sum of distances) vs. K. Look for an "elbow".
-# 2. Silhouette Score: Measures how similar an object is to its own cluster compared to others.
-# A reasonable starting range for song clustering might be K=5 to K=20, depending on dataset size.
-# Let's pick a default K for the example, but stress it needs tuning.
 DEFAULT_K = 10 # *** TUNE THIS VALUE BASED ON EVALUATION ***
 
 # Run clustering ONCE (or periodically) - Recalculate if data changes significantly
-# You might want this triggered differently in production
 print("Performing initial clustering...")
 cluster_labels, cluster_centers = run_kmedians(scaled_features, k=DEFAULT_K)
 song_data['cluster'] = cluster_labels # Add cluster labels to the DataFrame
@@ -109,7 +97,7 @@ def get_cluster_recommendations():
         if not user_data:
             return jsonify({"error": "Missing request body"}), 400
 
-        # --- Strategy 1: User provides average features ---
+        # User provides average features
         if 'average_features' in user_data and isinstance(user_data['average_features'], list):
             print("Processing based on average features...")
             # Ensure the feature vector matches the order used in training
@@ -144,7 +132,7 @@ def get_cluster_recommendations():
         return jsonify({"error": "An internal error occurred"}), 500
 
 # --- Run the App ---
-if __name__ == '__main__':
+#if __name__ == '__main__':
     # Host 0.0.0.0 makes it accessible on your network (use cautiously)
     # Port 5001 is just an example, ensure it doesn't conflict
-    app.run(host='0.0.0.0', port=5001, debug=True) # Turn debug=False for production
+#    app.run(host='0.0.0.0', port=5001, debug=True)

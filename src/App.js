@@ -1,260 +1,373 @@
+// src/App.js
 import React, { useState, useEffect } from 'react';
-import './App.css';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { initScrollObserver } from './utils/scrollObserver';
 
-//Configuration
+// Import Components and Styles
+import './App.css';
+import Navbar from './navbar';
+import ProfilePage from './profile';
+import TopArtistsPage from './artistPage';
+import TopTracksPage from './trackPage';
+import RecommendationsPage from './recommendations';
+
+// --- Constants ---
 const CLIENT_ID = 'bbc74db9fb9243f595ad6eb98f082b79';
-const REDIRECT_URI = 'http://localhost:3000'; 
+const REDIRECT_URI = 'http://localhost:5000';
 const AUTH_ENDPOINT = 'https://accounts.spotify.com/authorize';
 const RESPONSE_TYPE = 'token';
 const SCOPES = [
-    'user-read-private',         // Read user profile
-    'user-top-read',             // Read top artists and tracks
-    'user-read-recently-played', // Needed for recommendations seed sometimes
+    'user-read-private',
+    'user-read-email',
+    'user-top-read',
+    'user-read-recently-played',
+    'user-read-playback-position',
+    'user-read-playback-state',
+    'user-modify-playback-state',
+    'user-read-private'
 ];
 const SCOPES_URL_PARAM = SCOPES.join('%20');
-//Spotify API helper
+
+// --- API Helper ---
 async function fetchWebApi(endpoint, method, token, body = null) {
-    const res = await fetch(`https://api.spotify.com/${endpoint}`, {
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        method,
-        body: body ? JSON.stringify(body) : undefined,
-    });
-    if (!res.ok) {
-        // Basic error handling
-        const errorDetails = await res.json().catch(() => ({ error: { message: 'Failed to parse error JSON' } }));
-        console.error(`API Error (${res.status}): ${errorDetails?.error?.message || res.statusText}`);
-        throw new Error(`Spotify API request failed: ${res.statusText}`);
+    const BASE_URL = 'https://api.spotify.com/v1';
+    const apiUrl = `${BASE_URL}${endpoint}`;
+    
+    console.log("API Request URL:", apiUrl);
+    console.log("Token being sent:", token);
+
+    try {
+        const res = await fetch(apiUrl, {
+            method: method,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: body ? JSON.stringify(body) : undefined,
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            const errorMsg = errorData?.error?.message || res.statusText;
+            console.error(`API Error (${res.status}): ${errorMsg}`);
+            throw new Error(`Spotify API request failed: ${errorMsg}`);
+        }
+
+        return await res.json();
+    } catch (error) {
+        console.error('API Request Error:', error);
+        throw error;
     }
-    // Handle cases where response might be empty (e.g., 204 No Content)
-    if (res.status === 204) {
-        return null;
-    }
-    return await res.json();
 }
-//React Component
+// --- Duration Formatter ---
+function formatDuration(ms) {
+    if (typeof ms !== 'number' || ms < 0) return 'N/A';
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+}
+
+// --- Main App Component ---
 function App() {
-    const [token, setToken] = useState(null);
+    // --- State ---
+    const [token, setToken] = useState(window.localStorage.getItem('spotify_token')); // Initialize from localStorage
     const [profile, setProfile] = useState(null);
     const [topArtists, setTopArtists] = useState(null);
     const [topTracks, setTopTracks] = useState(null);
     const [recommendations, setRecommendations] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [topTracksAudioFeatures, setTopTracksAudioFeatures] = useState({});
+    const [recommendationsAudioFeatures, setRecommendationsAudioFeatures] = useState({});
+    const [loading, setLoading] = useState(false); // Tracks if *any* loading is happening
+    const [initialLoadComplete, setInitialLoadComplete] = useState(false); // Tracks if initial data load succeeded
     const [error, setError] = useState(null);
-    //User Authentication
+
+    // --- React Router Hooks ---
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // --- Authentication Handling (Check on load, handle hash) ---
     useEffect(() => {
+        console.log("App mount: Checking token status...");
         const hash = window.location.hash;
-        let localToken = window.localStorage.getItem('spotify_token');
-        let tokenExpiry = window.localStorage.getItem('spotify_token_expiry');
-        // Clear hash from URL bar
+        const localToken = window.localStorage.getItem('spotify_token');
+        const tokenExpiry = window.localStorage.getItem('spotify_token_expiry');
+        let validTokenFound = false;
+        // 1. Check hash for new token
         if (hash) {
-            window.history.pushState("", document.title, window.location.pathname + window.location.search);
+            console.log("URL hash detected.");
+            //window.history.pushState("", document.title, window.location.pathname + window.location.search); // Use pushState
         }
         // Check URL Hash for new token (after redirect)
-        if (!localToken && hash) {
+        if (!localToken && hash) { // Add !localToken check
             const params = new URLSearchParams(hash.substring(1));
             const accessToken = params.get('access_token');
             const expiresIn = params.get('expires_in');
             if (accessToken && expiresIn) {
                 const expiryTime = new Date().getTime() + parseInt(expiresIn) * 1000;
-                window.localStorage.setItem('spotify_token', accessToken);
-                window.localStorage.setItem('spotify_token_expiry', expiryTime.toString());
-                localToken = accessToken;
-                tokenExpiry = expiryTime.toString();
-                console.log("New token obtained from URL hash.");
-                setToken(accessToken);
+                // Quick check if expiry is valid
+                if (expiryTime > new Date().getTime()) {
+                    console.log("New token parsed from hash.");
+                    window.localStorage.setItem('spotify_token', accessToken);
+                    window.localStorage.setItem('spotify_token_expiry', expiryTime.toString());
+                    setToken(accessToken); // Set token state
+                    validTokenFound = true;
+                    //navigate('/'); // <--- ADD THIS LINE: Navigate to home page
+                } else {
+                    console.log("Token from hash is already expired.");
+                    window.localStorage.removeItem('spotify_token');
+                    window.localStorage.removeItem('spotify_token_expiry');
+                }
+            } else {
+                console.log("Hash did not contain valid token parameters.");
             }
         }
-        // Check Local Storage for existing, non-expired token
-        if (localToken && tokenExpiry && new Date().getTime() < parseInt(tokenExpiry)) {
-             console.log("Using valid token from local storage.");
-            setToken(localToken);
-        } else if (localToken) {
-            // Token expired or invalid
-            console.log("Token found in local storage has expired.");
-            logout();
+        // 2. Check localStorage if no valid token from hash
+        if (!validTokenFound && localToken && tokenExpiry) {
+            if (new Date().getTime() < parseInt(tokenExpiry)) {
+                console.log("Valid token found in localStorage.");
+                setToken(localToken); // Set token state
+                validTokenFound = true;
+            } else {
+                console.log("Token in localStorage has expired.");
+                window.localStorage.removeItem('spotify_token');
+                window.localStorage.removeItem('spotify_token_expiry');
+                setToken(null); // Ensure token state is null if expired
+            }
+        }
+        if (!validTokenFound && token) {
+            // If component had a token state but validation failed, clear it
+            console.log("Clearing invalid token state.");
+            setToken(null);
         }
     }, []);
-    //data fetching
+    // --- Data Fetching ---
     useEffect(() => {
-        if (token) {
-            console.log("Token available, attempting to fetch data...");
+        // Only fetch if token exists AND initial load hasn't completed
+        if (token && !initialLoadComplete) {
+            console.log("Starting initial data fetch...");
             setLoading(true);
             setError(null);
-            const fetchData = async () => {
+            // Clear previous data to avoid showing stale data briefly
+            setProfile(null); setTopArtists(null); setTopTracks(null); setRecommendations(null);
+            setTopTracksAudioFeatures({}); setRecommendationsAudioFeatures({});
+
+            const fetchAllData = async () => {
                 try {
-                    // Fetch User Profile
-                    console.log("Fetching profile...");
-                    const userProfile = await fetchWebApi('v1/me', 'GET', token);
-                    setProfile(userProfile);
-                    console.log("Profile fetched:", userProfile);
-                    // Fetch Top Artists
-                    console.log("Fetching top artists...");
-                    const artistsData = await fetchWebApi('v1/me/top/artists?time_range=medium_term&limit=20', 'GET', token);
-                    setTopArtists(artistsData.items);
-                    console.log("Top artists fetched:", artistsData.items);
-                    // Fetch Top Tracks
-                    console.log("Fetching top tracks...");
-                    const tracksData = await fetchWebApi('v1/me/top/tracks?time_range=medium_term&limit=20', 'GET', token);
-                    setTopTracks(tracksData.items);
-                    console.log("Top tracks fetched:", tracksData.items);
-                    // Fetch Recommendations (based on top artists/tracks)
-                    // Fetch Recommendations (based on top artists/tracks)
-                    // Ensure seed data exists
-                    const topArtistItems = artistsData?.items || [];
-                    const topTrackItems = tracksData?.items || [];
-                    if (topArtistItems.length > 0 || topTrackItems.length > 0) {
-                        console.log("Fetching recommendations...");
-                        // Get potential seeds, making sure IDs are valid strings
-                        const artistSeeds = topArtistItems
-                            .slice(0, 2)
-                            .map(artist => artist?.id)
-                            .filter(id => id);
-                        const trackSeeds = topTrackItems
-                            .slice(0, 3)
-                            .map(track => track?.id)
-                            .filter(id => id); 
-                        const queryParams = new URLSearchParams({ limit: '10' });
-                        if (artistSeeds.length > 0) {
-                            queryParams.append('seed_artists', artistSeeds.join(','));
-                        }
-                        if (trackSeeds.length > 0) {
-                            const remainingSeedSlots = 5 - artistSeeds.length;
-                            if (remainingSeedSlots > 0) {
-                                queryParams.append('seed_tracks', trackSeeds.slice(0, remainingSeedSlots).join(','));
+                    // Define chunk size for audio features requests
+                    const chunkSize = 50;
+
+                    // Fetch profile, artists, tracks in parallel
+                    const [profile, topArtists, topTracks] = await Promise.all([
+                        fetchWebApi('/me', 'GET', token),
+                        fetchWebApi('/me/top/artists?time_range=medium_term&limit=50', 'GET', token),
+                        fetchWebApi('/me/top/tracks?time_range=medium_term&limit=50', 'GET', token)
+                    ]);
+
+                    console.log('Profile data:', profile);
+                    console.log('Artists data:', topArtists);
+                    console.log('Tracks data:', topTracks);
+
+                    setProfile(profile);
+                    console.log("Profile fetched:", profile);
+
+                    const topArtistItems = topArtists?.items || [];
+                    setTopArtists(topArtistItems);
+                    console.log("Top artists fetched:", topArtistItems.length, "artists");
+
+                    const topTrackItems = topTracks?.items || [];
+                    setTopTracks(topTrackItems);
+                    console.log("Top tracks fetched:", topTrackItems.length, "tracks");
+
+                    // Commenting out audio features fetching for now
+                    /*
+                    // Fetch audio features sequentially after getting IDs
+                    let topTrackFeaturesMap = {};
+                    if (topTrackItems.length > 0) {
+                        // Split track IDs into chunks of 50 (Spotify's limit)
+                        const trackIds = topTrackItems.map(t => t.id);
+                        for (let i = 0; i < trackIds.length; i += chunkSize) {
+                            const chunk = trackIds.slice(i, i + chunkSize);
+                            const featuresData = await fetchWebApi(`/audio-features?ids=${chunk.join(',')}`, 'GET', token);
+                            if (featuresData?.audio_features) {
+                                featuresData.audio_features.forEach(f => { 
+                                    if (f) topTrackFeaturesMap[f.id] = f;
+                                });
                             }
+                            // Add a small delay between requests to avoid rate limiting
+                            await new Promise(resolve => setTimeout(resolve, 1000));
                         }
-                        if (queryParams.has('seed_artists') || queryParams.has('seed_tracks')) {
-                            try {
-                                const recommendationsData = await fetchWebApi(
-                                    `v1/recommendations?${queryParams.toString()}`,
-                                    'GET',
-                                    token
-                                );
-                                setRecommendations(recommendationsData.tracks);
-                                console.log("Recommendations fetched:", recommendationsData.tracks);
-                            } catch (recommendationError) {
-                                console.error("Error fetching recommendations:", recommendationError);
+                        setTopTracksAudioFeatures(topTrackFeaturesMap);
+                        console.log("Top tracks features fetched.");
+                    }
+                    */
+
+                    // Fetch recommendations
+                    const seed_artists = topArtistItems.slice(0, 2).map(a => a.id).join(',');
+                    const trackSeedCount = Math.min(topTrackItems.length, 5 - (seed_artists ? seed_artists.split(',').length : 0));
+                    const seed_tracks = trackSeedCount > 0 ? topTrackItems.slice(0, trackSeedCount).map(t => t.id).join(',') : '';
+
+                    let recommendationItems = [];
+                    if (seed_artists || seed_tracks) {
+                        try {
+                            const recParams = new URLSearchParams();
+                            recParams.append('limit', '20');
+                            
+                            // Only add seed parameters if they exist
+                            if (seed_artists) {
+                                recParams.append('seed_artists', seed_artists);
+                            }
+                            if (seed_tracks) {
+                                recParams.append('seed_tracks', seed_tracks);
+                            }
+
+                            console.log("Fetching recommendations with params:", recParams.toString());
+                            const recsData = await fetchWebApi(`/recommendations?${recParams.toString()}`, 'GET', token);
+                            
+                            if (recsData?.tracks) {
+                                recommendationItems = recsData.tracks;
+                                setRecommendations(recommendationItems);
+                                console.log("Recommendations fetched successfully:", recommendationItems.length, "tracks");
+                            } else {
+                                console.log("No recommendations data received");
                                 setRecommendations([]);
                             }
-                        } else {
-                            console.log("Not enough valid seed data (artists/tracks) found for recommendations.");
+                        } catch (error) {
+                            console.error("Error fetching recommendations:", error);
                             setRecommendations([]);
                         }
                     } else {
-                        console.log("No top artists or tracks found to seed recommendations.");
+                        console.log("Not enough seed data for recommendations.");
                         setRecommendations([]);
                     }
+
+                    console.log("Initial data fetch successful.");
+                    setInitialLoadComplete(true); // Mark initial load as done
+
                 } catch (err) {
-                    console.error("Error fetching data:", err);
-                    setError(err.message || 'An error occurred while fetching data.');
-                    if (err.message.includes('401') || err.message.includes('token') || err.message.includes('Unauthorized')) {
-                         console.log("token issue, logging out.");
-                         logout();
-                    }
+                     console.error("Error during initial data fetch:", err);
+                     if (err.message.includes('401') || err.message.includes('403') || err.message.includes('token')) {
+                          console.log("Authentication error detected, logging out.");
+                          logout();
+                     } else {
+                          setError(err.message || 'An error occurred while fetching data.');
+                     }
                 } finally {
-                    console.log("Data fetching complete.");
-                    setLoading(false);
+                    setLoading(false); // Stop loading indicator regardless of success/failure
                 }
             };
-            fetchData();
-        } else {
-            console.log("No token available, skipping data fetch.");
+
+            fetchAllData();
         }
-    }, [token]);
+    }, [token, initialLoadComplete]); // Effect dependencies
+
+    useEffect(() => {
+        const observer = initScrollObserver();
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
+
+    // Add scroll to top effect when route changes
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [location.pathname]);
+
+    // --- Login/Logout Handlers ---
     const handleLogin = () => {
         if (!CLIENT_ID) {
-             alert('Error: Spotify Client ID is not configured. Please update src/App.js');
-             return;
+            alert('Error: Spotify Client ID is not configured in App.js');
+            return;
         }
-        const authUrl = `${AUTH_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${SCOPES_URL_PARAM}&response_type=${RESPONSE_TYPE}&show_dialog=true`;
+        console.log("Redirect URI:", REDIRECT_URI);
+        // Corrected authUrl construction
+        const authUrl = `${AUTH_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${SCOPES_URL_PARAM}&response_type=token&show_dialog=true`;
         window.location.href = authUrl;
     };
+
     const logout = () => {
         console.log("Logging out...");
         setToken(null);
-        setProfile(null);
-        setTopArtists(null);
-        setTopTracks(null);
-        setRecommendations(null);
-        setError(null);
+        setProfile(null); setTopArtists(null); setTopTracks(null); setRecommendations(null);
+        setTopTracksAudioFeatures({}); setRecommendationsAudioFeatures({});
+        setError(null); setLoading(false); setInitialLoadComplete(false); // Reset state fully
         window.localStorage.removeItem('spotify_token');
         window.localStorage.removeItem('spotify_token_expiry');
-         window.location.href = window.location.origin + window.location.pathname;
+        navigate('/');
     };
+
+    // --- Animation Variants for Pages ---
+    const pageVariants = {
+        initial: { opacity: 0 },
+        animate: { opacity: 1, transition: { duration: 0.4, ease: "easeInOut" } },
+        exit: { opacity: 0, transition: { duration: 0.2, ease: "easeInOut" } }
+    };
+
+    // --- Render Logic ---
     return (
         <div className="App">
-            <header className="App-header">
-                <img src = "spotiverse.png"></img>
-                {!token ? (
+            {!token ? (
+                <div className="login-container">
+                    <h1>Spotify Stats</h1>
+                    <p>Connect your Spotify account to see your stats.</p>
                     <button onClick={handleLogin}>Connect Spotify</button>
-                ) : (
-                    <button onClick={logout}>Logout</button>
-                )}
-            </header>
-            <main>
-                {loading && <p>Loading data...</p>}
-                {error && <p className="error">Error: {error}</p>}
-                {!token && !loading && (
-                    <p>Please connect your Spotify account to see your stats.</p>
-                )}
-                {token && !loading && !error && profile && (
-                    <div className="user-profile fade-in-section">
-                         <h2>Welcome to your SpotiVerse, {profile.display_name}!</h2>
-                         {profile.images?.[0]?.url && (
-                            <img src={profile.images[0].url} alt="Profile" width={100} style={{ borderRadius: '50%' }} />
-                         )}
-                         <p><a href={profile.external_urls.spotify} target="_blank" rel="noopener noreferrer">View Profile on Spotify</a></p>
-                    </div>
-                )}
-                {token && !loading && !error && topArtists && (
-                    <section className="stats-section fade-in-section">
-                        <h2>Your Top Artists (Last 6 months) </h2>
-                        {topArtists.length > 0 ? (
-                            <ul>
-                                {topArtists.map((artist) => (
-                                    <li key={artist.id}>
-                                        {artist.images?.[2]?.url && <img src={artist.images[2].url} alt={artist.name} width={50} height={50} />}
-                                        <a href={artist.external_urls.spotify} target="_blank" rel="noopener noreferrer">{artist.name}</a> <div>({artist.genres.join(', ')})</div>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : <p>No top artists data available for this time range.</p>}
-                    </section>
-                )}
-                 {token && !loading && !error && topTracks && (
-                    <section className="stats-section fade-in-section">
-                        <h2>Your Top Tracks (Last 6 Months) </h2>
-                        {topTracks.length > 0 ? (
-                             <ul>
-                                {topTracks.map((track) => (
-                                    <li key={track.id}>
-                                        {track.album.images?.[2]?.url && <img src={track.album.images[2].url} alt={track.album.name} width={50} height={50} />}
-                                        <a href={track.external_urls.spotify} target="_blank" rel="noopener noreferrer">{track.name}</a>  <div>{track.artists.map(artist => artist.name).join(', ')}</div>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : <p>No top tracks data available for this time range.</p>}
-                    </section>
-                )}
-                 {token && !loading && !error && recommendations && (
-                    <section className="stats-section fade-in-section">
-                        <h2>Recommended Songs For You</h2>
-                         {recommendations.length > 0 ? (
-                            <ul>
-                                {recommendations.map((track) => (
-                                    <li key={track.id}>
-                                         {track.album.images?.[2]?.url && <img src={track.album.images[2].url} alt={track.album.name} width={50} height={50} />}
-                                        <a href={track.external_urls.spotify} target="_blank" rel="noopener noreferrer">{track.name}</a> by {track.artists.map(artist => artist.name).join(', ')}
-                                    </li>
-                                ))}
-                            </ul>
-                        ): <p>Couldn't generate recommendations based on your current top items.</p>}
-                    </section>
-                )}
-            </main>
+                </div>
+            ) : (
+                <>
+                    <Navbar />
+                    <main className="content-area">
+                        {loading && !initialLoadComplete && <p className="loading-text">Loading Spotify data...</p>}
+                        {error && <p className="error">Error: {error}</p>}
+
+                        <AnimatePresence mode="wait">
+                            {initialLoadComplete && profile && (
+                                <Routes location={location} key={location.pathname}>
+                                    <Route path="/" element={
+                                        <motion.div key="profile" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                                            <ProfilePage profile={profile} logout={logout} />
+                                        </motion.div>
+                                    }/>
+                                    <Route path="/profile" element={
+                                        <motion.div key="profile" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                                            <ProfilePage profile={profile} logout={logout} />
+                                        </motion.div>
+                                    }/>
+                                    <Route path="/top-artists" element={
+                                        <motion.div key="top-artists" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                                            <TopArtistsPage artists={topArtists} />
+                                        </motion.div>
+                                    }/>
+                                    <Route path="/top-tracks" element={
+                                        <motion.div key="top-tracks" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                                            <TopTracksPage 
+                                                tracks={topTracks} 
+                                                features={topTracksAudioFeatures} 
+                                                formatDuration={formatDuration} 
+                                            />
+                                        </motion.div>
+                                    }/>
+                                    <Route path="/recommendations" element={
+                                        <motion.div key="recommendations" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                                            <RecommendationsPage recommendations={recommendations} features={recommendationsAudioFeatures} formatDuration={formatDuration} />
+                                        </motion.div>
+                                    }/>
+                                    <Route path="*" element={
+                                        <motion.div key="notfound" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                                            <div style={{ textAlign: 'center', marginTop: '50px' }}>
+                                                <h2>404: Page Not Found</h2>
+                                                <p>The page you requested does not exist.</p>
+                                                <button onClick={() => navigate('/')}>Go to Home</button>
+                                            </div>
+                                        </motion.div>
+                                    }/>
+                                </Routes>
+                            )}
+                            {!loading && initialLoadComplete && !profile && <p className="error">Failed to load profile data.</p>}
+                        </AnimatePresence>
+                    </main>
+                </>
+            )}
         </div>
     );
 }
