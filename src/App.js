@@ -11,6 +11,7 @@ import ProfilePage from './profile';
 import TopArtistsPage from './artistPage';
 import TopTracksPage from './trackPage';
 import RecommendationsPage from './recommendations';
+import LoginPage from './LoginPage';
 
 // --- Constants ---
 const CLIENT_ID = 'bbc74db9fb9243f595ad6eb98f082b79';
@@ -307,67 +308,100 @@ function App() {
     // --- Render Logic ---
     return (
         <div className="App">
-            {!token ? (
-                <div className="login-container">
-                    <h1>Spotify Stats</h1>
-                    <p>Connect your Spotify account to see your stats.</p>
-                    <button onClick={handleLogin}>Connect Spotify</button>
-                </div>
-            ) : (
+            <div className="logo-container">
+                <img src="/spotiverse.png" alt="Spotiverse Logo" className="app-logo" />
+            </div>
+            
+            {token ? (
                 <>
+                    <div className="logout-container">
+                        <button className="logout-button" onClick={logout}>
+                            Logout
+                        </button>
+                    </div>
                     <Navbar />
-                    <main className="content-area">
-                        {loading && !initialLoadComplete && <p className="loading-text">Loading Spotify data...</p>}
-                        {error && <p className="error">Error: {error}</p>}
-
-                        <AnimatePresence mode="wait">
-                            {initialLoadComplete && profile && (
-                                <Routes location={location} key={location.pathname}>
-                                    <Route path="/" element={
-                                        <motion.div key="profile" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                                            <ProfilePage profile={profile} logout={logout} />
-                                        </motion.div>
-                                    }/>
-                                    <Route path="/profile" element={
-                                        <motion.div key="profile" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                                            <ProfilePage profile={profile} logout={logout} />
-                                        </motion.div>
-                                    }/>
-                                    <Route path="/top-artists" element={
-                                        <motion.div key="top-artists" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                                            <TopArtistsPage artists={topArtists} />
-                                        </motion.div>
-                                    }/>
-                                    <Route path="/top-tracks" element={
-                                        <motion.div key="top-tracks" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                                            <TopTracksPage 
-                                                tracks={topTracks} 
-                                                features={topTracksAudioFeatures} 
-                                                formatDuration={formatDuration} 
-                                            />
-                                        </motion.div>
-                                    }/>
-                                    <Route path="/recommendations" element={
-                                        <motion.div key="recommendations" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                                            <RecommendationsPage recommendations={recommendations} features={recommendationsAudioFeatures} formatDuration={formatDuration} />
-                                        </motion.div>
-                                    }/>
-                                    <Route path="*" element={
-                                        <motion.div key="notfound" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                                            <div style={{ textAlign: 'center', marginTop: '50px' }}>
-                                                <h2>404: Page Not Found</h2>
-                                                <p>The page you requested does not exist.</p>
-                                                <button onClick={() => navigate('/')}>Go to Home</button>
-                                            </div>
-                                        </motion.div>
-                                    }/>
-                                </Routes>
-                            )}
-                            {!loading && initialLoadComplete && !profile && <p className="error">Failed to load profile data.</p>}
-                        </AnimatePresence>
-                    </main>
                 </>
-            )}
+            ) : null}
+
+            <AnimatePresence mode="wait">
+                <Routes location={location} key={location.pathname}>
+                    <Route path="/" element={
+                        token ? (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.5 }}
+                            >
+                                <div className="content-area">
+                                    <h1 className="page-header">Your Profile</h1>
+                                    <ProfilePage 
+                                        profile={profile} 
+                                        topArtists={topArtists} 
+                                        topTracks={topTracks} 
+                                    />
+                                </div>
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.5 }}
+                            >
+                                <LoginPage onLogin={handleLogin} />
+                            </motion.div>
+                        )
+                    } />
+                    <Route path="/profile" element={
+                        <motion.div key="profile" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                            <div className="content-area">
+                                <h1 className="page-header">Your Profile</h1>
+                                <ProfilePage 
+                                    profile={profile} 
+                                    topArtists={topArtists} 
+                                    topTracks={topTracks} 
+                                />
+                            </div>
+                        </motion.div>
+                    }/>
+                    <Route path="/top-artists" element={
+                        <motion.div key="top-artists" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                            <div className="content-area">
+                                <TopArtistsPage artists={topArtists} />
+                            </div>
+                        </motion.div>
+                    }/>
+                    <Route path="/top-tracks" element={
+                        <motion.div key="top-tracks" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                            <div className="content-area">
+                                <TopTracksPage 
+                                    tracks={topTracks} 
+                                    features={topTracksAudioFeatures} 
+                                    formatDuration={formatDuration} 
+                                />
+                            </div>
+                        </motion.div>
+                    }/>
+                    <Route path="/recommendations" element={
+                        <motion.div key="recommendations" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                            <div className="content-area">
+                                <h1 className="page-header">Your Recommendations</h1>
+                                <RecommendationsPage recommendations={recommendations} features={recommendationsAudioFeatures} formatDuration={formatDuration} />
+                            </div>
+                        </motion.div>
+                    }/>
+                    <Route path="*" element={
+                        <motion.div key="notfound" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                            <div style={{ textAlign: 'center', marginTop: '50px' }}>
+                                <h2>404: Page Not Found</h2>
+                                <p>The page you requested does not exist.</p>
+                                <button onClick={() => navigate('/')}>Go to Home</button>
+                            </div>
+                        </motion.div>
+                    }/>
+                </Routes>
+            </AnimatePresence>
         </div>
     );
 }
